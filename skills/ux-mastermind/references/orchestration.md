@@ -78,9 +78,14 @@ Return: the path, a 5-bullet digest, and open questions for the user. Nothing el
 ```
 Catalogue the design system in Figma file <url> (key <key>) so later agents can pick
 existing components without re-reading the file. Read-only: do not modify the file.
-Load the figma-use skill before any use_figma call. Use get_metadata / search_design_system /
-get_variable_defs and small read-only use_figma scripts that return compact JSON; page through
-the file rather than dumping it in one call.
+Load the figma-use skill before any use_figma call. The design system is LOCAL to this file
+(local components, variables, styles) and is typically not published as a library, so
+get_libraries / search_design_system may report nothing — do not conclude there is no design
+system. Enumerate with read-only use_figma scripts (findAllWithCriteria for COMPONENT_SET /
+COMPONENT, figma.variables.getLocalVariableCollectionsAsync + getLocalVariablesAsync,
+getLocalTextStylesAsync, getLocalEffectStylesAsync; snippet in build-rules.md §1) that return
+compact JSON, page by page rather than dumping the file in one call; use get_metadata /
+get_screenshot to confirm what you found.
 Fill in <cwd>/.ux-prototype/DESIGN-SYSTEM.md (template already there): conventions, every
 component set with atomic level, node ID/key, variants & properties, "use it for / don't use it
 for", variable collections & modes, text/effect styles.

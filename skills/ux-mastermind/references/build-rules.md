@@ -27,10 +27,29 @@ touching Figma for a given piece of UI:
 1. Check `.ux-prototype/DESIGN-SYSTEM.md` and `.ux-prototype/NEW-COMPONENTS.md` first —
    these are the running inventories this skill maintains (see §3, §7). They're cheaper to
    read than the file and stay in sync between sessions.
-2. Search the file's local components and any enabled libraries by name AND by synonym —
-   shadcn naming and everyday UX vocabulary diverge often enough that a plain-text search
-   will miss the match otherwise. Check both before concluding nothing fits: `get_libraries`
-   → `search_design_system`, per `figma-use` and `figma-generate-library` §5.
+2. Search the file's **local** components first, then any enabled libraries, by name AND by
+   synonym — shadcn naming and everyday UX vocabulary diverge often enough that a plain-text
+   search will miss the match otherwise. The team's files keep the design system as *local*
+   components, variables and styles — usually **not published as a library** — so
+   `get_libraries` / `search_design_system` (which look at published libraries) will often
+   return nothing or claim there is no design system. That is not evidence that nothing
+   exists. Enumerate local components with the Plugin API instead (read-only script):
+
+   ```js
+   // Local component inventory — run once per page, or over figma.root for small files
+   await figma.loadAllPagesAsync();
+   const sets = figma.root.findAllWithCriteria({ types: ['COMPONENT_SET', 'COMPONENT'] })
+     .filter(n => n.type === 'COMPONENT_SET' || !n.parent || n.parent.type !== 'COMPONENT_SET');
+   return sets.map(n => ({
+     id: n.id, key: n.key, name: n.name, page: n.parent && (n.parent.type === 'PAGE' ? n.parent.name : (n.parent.parent && n.parent.parent.name)),
+     props: n.type === 'COMPONENT_SET' ? Object.keys(n.componentPropertyDefinitions) : undefined
+   }));
+   ```
+
+   Only conclude "nothing fits" after both this local scan and a library search come back
+   empty. Same for tokens: `figma.variables.getLocalVariableCollectionsAsync()`,
+   `getLocalVariablesAsync()`, `figma.getLocalTextStylesAsync()`, `getLocalEffectStylesAsync()`
+   see local definitions that `get_variable_defs` on a published library would miss.
 
 | If you're thinking… | Also search for… |
 |---|---|
@@ -48,9 +67,11 @@ touching Figma for a given piece of UI:
 | Search box / command palette | Command, Input |
 | Table with filters/search/bulk actions | Data Table (Table + Toolbar + Pagination) |
 
-3. Once you've found the right component, insert an **instance** — `createInstance()` on a
-   local `ComponentNode`/`ComponentSetNode`, or `importComponentByKeyAsync` /
-   `importComponentSetByKeyAsync` for a library component — never detach it, never copy its
+3. Once you've found the right component, insert an **instance** — for a local component,
+   `(await figma.getNodeByIdAsync(id))` then `createInstance()` on the `ComponentNode` (for a
+   set, pick the variant via `set.defaultVariant` or `set.findChild`); use
+   `importComponentByKeyAsync` / `importComponentSetByKeyAsync` **only** for components that
+   come from a published library — it fails for unpublished local components — never detach it, never copy its
    layers into a new frame, and never draw a rectangle/text stack that recreates what a
    component already renders. A detached or hand-drawn copy stops tracking the design
    system, so any later restyle misses every screen that used it.
@@ -216,8 +237,12 @@ matters because the whole reason to prototype inside the user's file is that a r
 the design system should ripple through every screen automatically — a hardcoded value
 silently opts a node out of that.
 
-**Discover before inventing.** Call `get_variable_defs` and enumerate local variable
-collections before creating anything. shadcn files typically expose semantic names —
+**Discover before inventing.** Enumerate the local variable collections and styles
+(`figma.variables.getLocalVariableCollectionsAsync()` / `getLocalVariablesAsync()`,
+`figma.getLocalTextStylesAsync()`, `getLocalEffectStylesAsync()`, plus `get_variable_defs` on
+a node that uses them) before creating anything — the team's tokens are local to the file,
+not a published library, so a tool that reports "no variables/library" is looking in the
+wrong place. shadcn files typically expose semantic names —
 `background`, `foreground`, `primary`, `secondary`, `muted`, `accent`, `border`, `ring`,
 `destructive`, `radius`, plus a spacing scale. Use exactly what's there; match casing and
 grouping conventions.
