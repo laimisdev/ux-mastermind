@@ -127,7 +127,7 @@ different words for them — but if the file already has its own atomic-design c
 
 **Nesting rule:** each level is composed of *instances* of the level below it. A page
 should contain no raw layers of its own except layout frames (auto-layout wrappers used
-purely for arrangement) — every piece of actual UI on a page is an instance of a molecule,
+purely for arrangement, or one-off inline compositions of instances — see below) — every piece of actual UI on a page is an instance of a molecule,
 organism, or atom, not a hand-built substitute.
 
 **Build bottom-up.** Before starting level *N*, confirm the level *N-1* pieces it depends on
@@ -141,11 +141,32 @@ proposal — if the file already has its own naming convention (even a different
 follow the file's convention instead of imposing this one. Discover it first, per `figma-use`
 §9.
 
-**Where new components live:** a dedicated page, proposed name `🧩 UX Components`, with one
-section per atomic level (Atoms / Molecules / Organisms / Templates) — unless the file
-already has a convention for where generated components go (e.g. it follows the
-`figma-generate-library` "one page per component" pattern), in which case follow that
-instead.
+**Where new components live: on the prototype page itself.** The whole prototype — new
+components and all screens — goes on one page (proposed name `🧠 UX Prototype`, or the
+page the user points at). Reviewers want to see the pieces and the screens together, and
+teammates shouldn't have to hunt across pages to find what a screen is made of. Lay the
+page out as horizontal bands of Sections, top to bottom: `Components` (one sub-section per
+atomic level: Molecules / Organisms / Templates), then one Section per flow with its screens
+left-to-right. Don't create extra pages for components; if the file already has its own
+convention for generated components, follow that instead and note it in
+`DESIGN-SYSTEM.md`. Leave the design-system pages untouched either way.
+
+**Create only what earns its keep.** Every new component is something a teammate has to
+learn, maintain and check — a prototype drowning in `Organism/…` sets is as hard to read as
+one made of raw layers. Before creating one, ask:
+
+- Does an existing component already do this with a property or variant? Use it.
+- Will it appear more than once (across screens or states), or must it carry state
+  interactions of its own? If not, compose it *inline* from atom/molecule instances inside
+  a plain, well-named auto-layout frame on the screen. One-off page content (a specific
+  hero, a specific settings section, a one-time confirmation message) is inline, not a
+  component.
+- Is it really a new thing, or a variant of one you already made? Extend the existing set.
+
+As a rule of thumb, a flow of 5–8 screens usually needs 0–2 molecules and 1–3 organisms
+plus at most one template; if the plan lists more, prune it. Templates are only worth
+making when 3+ screens share the same skeleton. The nesting rule above still holds for
+whatever *is* a component: it's built from instances of the level below.
 
 ---
 
@@ -333,10 +354,10 @@ assembling screens. Concretely:
 - Also leave the internal layers of an instance alone — never rename, reorder or detach
   nodes inside an instance; change them only via component properties and overrides of
   text/visibility/instance-swap.
-- One page per flow or per area, matching whatever the plan dictates — don't cram unrelated
-  flows onto one page or split one flow across several without reason.
-- Lay screens out left-to-right in flow order with consistent spacing, grouped in a Section
-  per flow — this makes a page readable as a flow at a glance instead of a grid of frames.
+- One page for the whole prototype (§2): a `Components` Section at the top, then one
+  Section per flow below it — don't spread flows or components across pages.
+- Lay screens out left-to-right in flow order with consistent spacing inside their flow's
+  Section — this makes the page readable as a flow at a glance instead of a grid of frames.
 - Work in small, incremental `use_figma` scripts, each returning a summary of created node
   IDs (per `figma-use` Rule 15) so the orchestrator can record them — one giant script is
   much harder to debug and recover from when a step fails partway through. When you're in

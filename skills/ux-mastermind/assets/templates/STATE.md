@@ -21,7 +21,7 @@
 | URL | <!-- https://www.figma.com/design/... --> |
 | File key | <!-- extract from URL after /design/ --> |
 | File name | <!-- exact file name in Figma --> |
-| Pages Claude may edit | <!-- list pages by name --> |
+| Prototype page | <!-- the single page holding Components + all flows, e.g. 🧠 UX Prototype --> |
 | Last verified | <!-- YYYY-MM-DD when you last opened it --> |
 
 ## Current focus

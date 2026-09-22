@@ -39,9 +39,9 @@ Read-only and off-Figma work parallelises freely: all researchers for a flow at 
 
 Writes to one Figma file need care, because two agents editing the same page or component produce conflicts and half-applied scripts:
 
-- One writer per Figma page (or per Section, if the brief names the section and its canvas area) at a time.
+- The prototype lives on one page, so parallel writers are split by **Section**: give each builder its own Section name and x/y origin, and never two writers in the same Section.
 - Anything shared — a new component, a new variable, a template — is built **serially and before** the agents that depend on it start. Finish the atomic level below before fanning out the level above.
-- Good fan-out: after templates and organisms for a flow exist, split its screens across 2–3 screen builders, each given its own section and x/y origin. Or build two independent flows on two pages simultaneously.
+- Good fan-out: after templates and organisms for a flow exist, split its screens across 2–3 screen builders, each given its own Section and x/y origin. Or build two independent flows in two Sections simultaneously.
 - Launch independent agents in a single message so they actually run concurrently. Run in the background when you have other useful work (e.g. talking to the user); otherwise wait.
 - QA runs after the builders for that area have all returned.
 
@@ -95,7 +95,8 @@ Create ONE new component in Figma file <url> (key <key>) because nothing existin
 Component: <name, atomic level> — purpose: <what it does in the flow>.
 Build it from these existing components (instances): <name → node ID/key list>.
 States/variants required: <list>. Properties: <text/boolean/instance-swap list>.
-Place it on page "<page>", section "<section>", near x=<x>, y=<y>.
+Place it on the prototype page "<page>" inside the "Components" Section, sub-section "<Molecules|Organisms|Templates>", near x=<x>, y=<y>.
+It qualifies as a component because: <recurs on screens X, Y / carries its own states>.
 Read first: <skill path>/references/build-rules.md (§2–5) and references/prototyping.md (§1, §3).
 Load the figma-use and figma-generate-library skills before use_figma.
 Use only existing variables/styles: <relevant tokens>. If a value is truly missing, add a
