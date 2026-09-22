@@ -71,6 +71,7 @@ The detail and the reasoning are in `references/build-rules.md`; every building 
 - **Variables, tokens, styles for every value.** Missing colour/size/radius/text style? Add it to the file's existing collections following their naming and modes, then use it and log it. No raw hex or pixel values.
 - **Auto layout everywhere**, with deliberate fill/hug, min/max widths and wrapping so components survive resizing.
 - **No design decisions.** shadcn defaults untouched, neutral placeholders for imagery, no decoration. Do use realistic copy and data — labels, errors and empty-state text are UX.
+- **Instances keep their component's name.** Never rename an instance or the layers inside it; name only the frames, sections and screens you create yourself.
 - **Small, verifiable Figma writes**: incremental scripts that return the node IDs they created, a screenshot check after each screen.
 
 ## Orchestration

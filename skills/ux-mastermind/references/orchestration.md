@@ -101,6 +101,7 @@ Load the figma-use and figma-generate-library skills before use_figma.
 Use only existing variables/styles: <relevant tokens>. If a value is truly missing, add a
 variable following the collection's naming and modes and report it.
 Wire state interactions on the main component variants. Fill in the component description.
+Instances of existing components inside your component keep their original names.
 Self-check: run the unbound-values and no-auto-layout snippets on the component; screenshot it.
 Do not edit any .ux-prototype files.
 Return: component set node ID + key, variants, properties, interactions wired, tokens added,
@@ -116,6 +117,8 @@ Context: <2 lines about product/users>. Research digest: <5 bullets or note path
 Read first: <skill path>/references/build-rules.md. Load the figma-use skill before use_figma.
 Everything is instances of existing components with realistic content; if something needed
 does not exist, STOP building that part and report it rather than drawing raw layers.
+Do not rename instances or anything inside them — they keep the component's name; name only
+the frames you create (e.g. "Login Form", "Header").
 Work in small scripts that return created node IDs. Screenshot each finished screen and fix
 what looks broken. Run the definition-of-done checks.
 Do not wire screen-to-screen navigation (a later agent does) unless told otherwise. Do not
@@ -141,7 +144,9 @@ Verify, do not fix. Figma file <url> (key <key>), nodes: <IDs>.
 Read <skill path>/references/build-rules.md (§8 definition of done + verification snippets) and
 references/prototyping.md (§ verification). Load the figma-use skill before use_figma.
 Run the snippets (read-only), take screenshots at current width, and resize-check at 1280 and
-1728 (restore 1512 afterwards).
+1728 (restore 1512 afterwards). Also list any INSTANCE whose name differs from its main
+component's name (`inst.name !== (await inst.getMainComponentAsync()).name`, accounting for
+variant sets where the parent component set name is the expected one).
 Return a defect list: node ID | rule broken | evidence. Say "PASS" per screen when clean. ≤ 40 lines.
 ```
 

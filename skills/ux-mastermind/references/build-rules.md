@@ -320,8 +320,19 @@ assembling screens. Concretely:
 - Never delete or restyle an existing design-system component — if something about it seems
   wrong for the UX, flag it in `DESIGN-SYSTEM.md` rather than changing it in place; a shared
   component change affects every screen that uses it, including ones outside this task.
-- Name every layer meaningfully — `Frame 47` tells the next agent (or `use_figma` call)
-  nothing; `Login Form`, `Email Field`, `Submit Button` does.
+- Keep instances named exactly as their component — never set `.name` on an instance
+  (`Button`, `Input`, `Dialog` stay `Button`, `Input`, `Dialog`). Figma shows the component
+  name on an instance by default, and that is how designers, Dev Mode, Code Connect and the
+  next agent recognise what it is; a renamed instance looks like a custom layer and breaks
+  the trace back to the design system. Express purpose through the *containing* frame and
+  through text/property values instead — a `Login Form` frame holding an `Input` whose
+  label reads "Email" is clear; an instance renamed `Email Field` is not.
+- Name the frames *you* create meaningfully — `Frame 47` tells the next agent (or
+  `use_figma` call) nothing; `Login Form`, `Header`, `Content` does. This applies only to
+  plain frames, sections and screens you draw, never to instances.
+- Also leave the internal layers of an instance alone — never rename, reorder or detach
+  nodes inside an instance; change them only via component properties and overrides of
+  text/visibility/instance-swap.
 - One page per flow or per area, matching whatever the plan dictates — don't cram unrelated
   flows onto one page or split one flow across several without reason.
 - Lay screens out left-to-right in flow order with consistent spacing, grouped in a Section
@@ -353,7 +364,8 @@ A screen is done only when all of these are true:
       ~1280 and ~1728 widths
 - [ ] Content is realistic (real labels, plausible data, real error/empty copy) and visuals
       are wireframe-neutral (design-system defaults only, no new brand/imagery/decoration)
-- [ ] Every layer is meaningfully named
+- [ ] Every frame Claude created is meaningfully named; every instance still carries its
+      original component name (no renamed instances, nothing renamed inside instances)
 - [ ] Screen sits in flow order, in the right Section, on the assigned page
 - [ ] `use_figma` calls that built it each returned their created/mutated node IDs, and
       those IDs are recorded for the orchestrator
