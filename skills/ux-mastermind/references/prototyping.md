@@ -205,7 +205,26 @@ await closeButton.setReactionsAsync([
 ])
 ```
 
-**Overlay position/background are read-only on the frame in the Plugin API.** `FramePrototypingMixin.overlayPositionType`, `.overlayBackground`, and `.overlayBackgroundInteraction` are all declared `readonly` — there is no setter in this d.ts. They can only be read, not written; changing "centered modal" vs "bottom sheet" placement, background dim, or click-outside-to-dismiss must be done by hand in Figma's Prototype panel. The one overlay-related field the **action** *can* set is `overlayRelativePosition` (a `Vector`) on the `NODE` action, and only when the destination's `overlayPositionType` is already `'MANUAL'`. Flag this gap in your build report whenever a flow needs specific overlay placement on a frame that isn't already configured for it — the script cannot make that change.
+**Overlays are single shared frames, never duplicated screens.** Each dialog, sheet, dropdown menu, popover, tooltip, toast or command palette exists exactly once, as its own top-level frame on the prototype page (an `Overlays` sub-section of the `Components` Section), containing one instance of the relevant design-system component (`Dialog`, `Sheet`, `Dropdown Menu`, …) with its real content. Screens open it with `OVERLAY` and it closes with `CLOSE`. Do **not** add an "overlay slot" to screens, and do not duplicate a screen to show it with an overlay on top — that multiplies screens (Settings, Settings + delete dialog, Settings + saved toast…) and every later change has to be made N times. A base screen plus one overlay frame is one screen in the file and one screen in the reviewer's head.
+
+**Wire the overlay from the main component whenever the overlay belongs to the component.** `OVERLAY` reactions set on a node inside a main component (or a variant inside a component set) are inherited by every instance, exactly like `CHANGE_TO` reactions — and because the whole prototype lives on one page, the "destination must be a top-level frame on the same page" rule is satisfied. So:
+
+- A component-owned overlay — the account menu opened from the app header's avatar, the options list of a `Select`/`Combobox`, a `Tooltip` on an icon button, the `Date Picker` popover of a date input, the `Command` palette from the search field — is wired **once, on the main component** (organism or atom), pointing at the single overlay frame. Every screen that uses the header then opens the same menu without any per-screen wiring.
+- A screen-specific overlay — the "Delete project?" confirm dialog from *this* screen's delete button, the "Changes saved" toast after *this* form's submit — is wired on the instance inside the screen, still pointing at the single shared overlay frame for that dialog/toast.
+- Closing is wired once, inside the overlay frame (`CLOSE` on its close/cancel button; a primary action that should also move on gets `CLOSE` followed by `NAVIGATE` in the same `actions` array, or just `NAVIGATE`, which dismisses the overlay). Because the overlay frame contains an instance of the component, put close reactions on the nodes *inside that instance* — or better, if the overlay component itself owns a close button, wire `CLOSE` on the main component's close button so every overlay built from it closes without extra work.
+
+```js
+// Component-owned overlay: wire on the MAIN component so all instances inherit it
+const header = await figma.getNodeByIdAsync(APP_HEADER_MAIN_COMPONENT_ID) // COMPONENT, not an instance
+const avatarTrigger = header.findOne(n => n.name === 'Avatar')
+await avatarTrigger.setReactionsAsync([{
+  trigger: { type: 'ON_CLICK' },
+  actions: [{ type: 'NODE', destinationId: ACCOUNT_MENU_OVERLAY_FRAME_ID, navigation: 'OVERLAY',
+              transition: { type: 'DISSOLVE', easing: { type: 'EASE_OUT' }, duration: 0.2 } }],
+}])
+```
+
+**Overlay position/background are read-only on the frame in the Plugin API.** `FramePrototypingMixin.overlayPositionType`, `.overlayBackground`, and `.overlayBackgroundInteraction` are all declared `readonly` — there is no setter in this d.ts. They can only be read, not written; changing "centered modal" vs "bottom sheet" placement, background dim, or click-outside-to-dismiss must be done by hand in Figma's Prototype panel. The one overlay-related field the **action** *can* set is `overlayRelativePosition` (a `Vector`) on the `NODE` action, and only when the destination's `overlayPositionType` is already `'MANUAL'`. A frame first used as an overlay gets Figma's defaults (centered, no background dim, close on click outside), which is fine for dialogs and acceptable as a wireframe for menus and sheets. This limitation is **not** a reason to avoid overlays or to fake them by duplicating screens — use the overlay and list, in the checkpoint summary, the overlay frames whose placement/background the user should adjust by hand (e.g. "Sheet → anchor right", "Dropdown → manual position under trigger").
 
 ### BACK
 
@@ -306,6 +325,7 @@ Run this checklist for every user flow before calling it done:
 - [ ] **Every screen is reachable from the flow's `flowStartingPoints` entry.** No orphaned screens that only exist as unreferenced frames on the page.
 - [ ] **Every screen has a way back or out** — a `BACK` action, an explicit `NAVIGATE` to a known previous/parent screen, or (for the flow's true entry screen) it legitimately has no "back."
 - [ ] **Error, empty, loading, and success states are reachable**, not just visually designed. If a screen has an `Error` variant or a companion `[Screen] — Error` frame, some trigger in the flow must actually navigate/change-to it (even if only for demo purposes, e.g. a "Simulate error" affordance) — an unreachable error state isn't prototyped, it's just drawn.
+- [ ] **One frame per overlay.** No screen contains an "overlay slot", and no two top-level frames are the same screen differing only by an overlay on top. Component-owned overlays are wired on the main component, not per screen.
 - [ ] **Overlays close.** Every `OVERLAY` destination has at least one `CLOSE` action reachable from inside it (close button, and/or rely on `overlayBackgroundInteraction` if it's already set to `CLOSE_ON_CLICK_OUTSIDE` in the file — remember this property is read-only from script, so don't assume it without checking).
 - [ ] **One flow starting point per flow**, pointing at that flow's actual first screen, named after the flow.
 

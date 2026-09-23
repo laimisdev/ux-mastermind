@@ -183,6 +183,10 @@ one made of raw layers. Before creating one, ask:
   hero, a specific settings section, a one-time confirmation message) is inline, not a
   component.
 - Is it really a new thing, or a variant of one you already made? Extend the existing set.
+- Is it an overlay (dialog, sheet, menu, popover, tooltip, toast)? Then it is a single
+  top-level frame in the `Overlays` sub-section holding an instance of the design-system
+  component, opened via an `OVERLAY` reaction — not a slot on every screen, and never a
+  reason to duplicate a screen. See `references/prototyping.md` "Open overlay".
 
 As a rule of thumb, a flow of 5–8 screens usually needs 0–2 molecules and 1–3 organisms
 plus at most one template; if the plan lists more, prune it. Templates are only worth
@@ -413,6 +417,8 @@ A screen is done only when all of these are true:
 - [ ] Every frame Claude created is meaningfully named; every instance still carries its
       original component name (no renamed instances, nothing renamed inside instances)
 - [ ] Screen sits in flow order, in the right Section, on the assigned page
+- [ ] Screen has no overlay slot and is not a duplicate of another screen with an overlay
+      on top; overlays it opens are shared frames in the `Overlays` sub-section
 - [ ] `use_figma` calls that built it each returned their created/mutated node IDs, and
       those IDs are recorded for the orchestrator
 - [ ] A screenshot was taken and reviewed after building

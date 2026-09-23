@@ -127,6 +127,8 @@ Do not rename instances or anything inside them — they keep the component's na
 the frames you create (e.g. "Login Form", "Header").
 Work in small scripts that return created node IDs. Screenshot each finished screen and fix
 what looks broken. Run the definition-of-done checks.
+Do not add "overlay slots" to screens and do not build duplicate screens that only differ by
+an overlay — overlays are separate shared frames handled by the wiring agent.
 Do not wire screen-to-screen navigation (a later agent does) unless told otherwise. Do not
 edit any .ux-prototype files.
 Return: table of screen → node ID → components used; missing pieces; doubts. ≤ 30 lines.
@@ -139,6 +141,11 @@ Screens and node IDs: <table>. Intended wiring: <From › element | trigger | ac
 Read first: <skill path>/references/prototyping.md. Load the figma-use skill before use_figma.
 Component state behaviour belongs on main components — if an instance lacks inherited
 behaviour, fix the main component (<NEW-COMPONENTS rows>) rather than wiring the instance.
+Overlays are single shared frames in the "Overlays" sub-section (create any that are missing:
+one instance of Dialog/Sheet/Dropdown Menu/… with real content, no screen duplication). Wire
+component-owned overlays (header menus, select options, tooltips, date pickers) on the MAIN
+component so all instances inherit them; wire screen-specific dialogs/toasts on the screen's
+instance. Report overlay frames whose position/background the user must set by hand.
 Set one flow starting point named "<flow>". Run the verification snippet and resolve or list
 every dead end and unreachable screen.
 Return: completed wiring rows, verification JSON summary, unresolved items. ≤ 30 lines.
