@@ -106,7 +106,7 @@ Regardless of feature, the resulting flow and state list must account for:
 - **Accessibility**: focus order, form labels, full keyboard operability, minimum target size
   (44x44pt / equivalent), how errors are announced to assistive tech (e.g. `aria-live`,
   associated error text, not color alone).
-- **Desktop considerations at 1512px** — this team's default canvas width. Note where layout
+- **Desktop considerations at the project's frame width** (see `PROJECT.md`, typically 1512–1728px). Note where layout
   should reflow vs. stay fixed-width, and where dense/desktop-only affordances (hover states,
   multi-column layouts, keyboard shortcuts) apply that wouldn't exist on mobile.
 

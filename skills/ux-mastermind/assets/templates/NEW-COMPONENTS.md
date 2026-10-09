@@ -1,6 +1,6 @@
 # Components created by Claude
 
-<!-- Inventory of any new components Claude built during this project (beyond using existing design system components) -->
+<!-- Creation HISTORY of components Claude built (append-only). For the current state — what exists now and where it's used — see COMPONENT-INDEX.md. Gotchas go to LESSONS.md, not here. -->
 
 | Component | Atomic level | Node ID | Page/section | Built from (child components) | Variants / states | Properties | Interactions wired on main component | Use it for | Created (date, task ID) |
 |-----------|--------------|---------|--------------|------------------------------|-------------------|-----------|--------------------------------------|------------|------------------------|

@@ -20,7 +20,7 @@ npx skills update
 
 ## Use
 
-In Claude Code, type `/ux-mastermind` or just share a Figma link with a brief. The skill walks you through setup one step at a time (Figma MCP → Mobbin MCP → Figma file → briefs → questions → plan) and then builds one flow at a time, pausing for your review after each.
+In Claude Code, type `/ux-mastermind` or just share a Figma link with a brief. The skill walks you through setup one step at a time (Figma MCP → Mobbin MCP → Figma file → briefs → live product → questions incl. presentation device and UI language → design-system inventory → plan) and then builds one flow at a time, pausing for a short review after each. Anything it can't know goes into `NEEDED-INFO.md` while it keeps building. When all flows are approved it offers a hand-off cleanup.
 
 Requirements: Figma MCP connected; Mobbin MCP (optional, paid plan) — the skill adds it with `claude mcp add mobbin --scope user --transport http https://api.mobbin.com/mcp`.
 

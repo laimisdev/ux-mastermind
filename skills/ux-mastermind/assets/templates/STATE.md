@@ -8,7 +8,8 @@
 - [ ] Mobbin MCP added and authenticated (or skipped)
 - [ ] Figma file link recorded and file opens
 - [ ] Resources & briefs gathered and analysed (RESOURCES.md)
-- [ ] Clarifying questions asked, answers recorded (PROJECT.md)
+- [ ] Live product checked — URL, access, safe-click boundary recorded (or none) (PROJECT.md)
+- [ ] Clarifying questions asked incl. presentation setup and UI language, answers recorded (PROJECT.md)
 - [ ] Design system inventoried (DESIGN-SYSTEM.md)
 - [ ] Flows & screens planned and approved by user (FLOWS.md, TASKS.md)
 
@@ -21,6 +22,7 @@
 | URL | <!-- https://www.figma.com/design/... --> |
 | File key | <!-- extract from URL after /design/ --> |
 | File name | <!-- exact file name in Figma --> |
+| Figma tool prefix | <!-- the authenticated Figma MCP server, e.g. mcp__claude_ai_Figma__ — named in every subagent brief --> |
 | Prototype page | <!-- the single page holding Components + all flows, e.g. 🧠 UX Prototype --> |
 | Last verified | <!-- YYYY-MM-DD when you last opened it --> |
 

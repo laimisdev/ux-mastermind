@@ -10,9 +10,42 @@
 
 <!-- Describe the primary user persona(s) and what they are trying to accomplish. One paragraph per persona. -->
 
-## Platform & viewport
+## Platform & presentation setup
 
-Desktop web, 1512px wide frames
+<!-- Asked at Gate 6. Retrofitting these across finished screens is expensive — settle them before the first screen. -->
+
+| Setting | Value |
+|---------|-------|
+| Platform | Desktop web |
+| Presentation device | <!-- e.g. MacBook Pro 16" — Figma prototype device setting --> |
+| Frame width × min height | <!-- e.g. 1728 × 1117 (min height = device height; height hugs content) --> |
+| Fixed while scrolling | <!-- e.g. sidebar + header fixed, only content scrolls --> |
+| UI copy language | <!-- e.g. Lithuanian --> |
+| Terminology source | <!-- e.g. live platform names; never invent new terms --> |
+
+## Live product
+
+<!-- Asked at Gate 5. Primary source when it exists. Never store passwords here. -->
+
+| Field | Value |
+|-------|-------|
+| URL | <!-- or "none" --> |
+| Access | <!-- e.g. user logs in for us / sends screenshots --> |
+| Safe-click boundary | <!-- e.g. read-only; never submit orders, payments or messages --> |
+
+## Team conventions
+
+<!-- Conventions the design system doesn't encode. Every builder follows them. -->
+
+- Button order in dialogs and sheets: primary first, cancel last
+- 
+
+## Global rules
+
+<!-- User preferences found mid-project that apply to ALL flows, past and future (e.g. "no undo in toasts", "tags follow stock colour logic"). Apply to existing flows when added; read at every resume. -->
+
+| Date | Rule | Source (feedback / flow) | Applied to existing flows? |
+|------|------|--------------------------|----------------------------|
 
 ## Fidelity
 

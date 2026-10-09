@@ -3,7 +3,8 @@
 House rules for building wireframe-level, fully prototyped UX inside a user's existing
 Figma file. This file is WHAT to build and to what standard. For HOW to call the Plugin
 API, load `figma-use` (mandatory before every `use_figma` call). For HOW to construct a new
-component, load `figma-generate-library` alongside it. Neither is duplicated here.
+component, load `figma-generate-library` alongside it. Neither is duplicated here. API
+traps that cost us failed runs are in `figma-gotchas.md` — read it before scripting.
 
 ## Table of contents
 
@@ -15,6 +16,7 @@ component, load `figma-generate-library` alongside it. Neither is duplicated her
 6. [Wireframe fidelity — no design decisions](#6-wireframe-fidelity--no-design-decisions)
 7. [File hygiene](#7-file-hygiene)
 8. [Definition of done per screen](#8-definition-of-done-per-screen)
+9. [Consistency sweep (before every checkpoint)](#9-consistency-sweep-before-every-checkpoint)
 
 ---
 
@@ -24,7 +26,7 @@ The whole point of prototyping inside the user's file is that a shadcn/ui system
 already there — treat every screen as an assembly problem, not a drawing problem. Before
 touching Figma for a given piece of UI:
 
-1. Check `.ux-prototype/DESIGN-SYSTEM.md` and `.ux-prototype/NEW-COMPONENTS.md` first —
+1. Check `.ux-prototype/DESIGN-SYSTEM.md` and `.ux-prototype/COMPONENT-INDEX.md` first —
    these are the running inventories this skill maintains (see §3, §7). They're cheaper to
    read than the file and stay in sync between sessions.
 2. Search the file's **local** components first, then any enabled libraries, by name AND by
@@ -182,7 +184,9 @@ one made of raw layers. Before creating one, ask:
   a plain, well-named auto-layout frame on the screen. One-off page content (a specific
   hero, a specific settings section, a one-time confirmation message) is inline, not a
   component.
-- Is it really a new thing, or a variant of one you already made? Extend the existing set.
+- Is it really a new thing, or a variant of one you already made? Extend the existing set —
+  but only while it is unapproved, or when the change is meant for every usage. An
+  approved component is forked for a new context instead (§3, "Fork when context differs").
 - Is it an overlay (dialog, sheet, menu, popover, tooltip, toast)? Then it is a single
   top-level frame in the `Overlays` sub-section holding an instance of the design-system
   component, opened via an `OVERLAY` reaction — not a slot on every screen, and never a
@@ -226,15 +230,38 @@ A new component is done only when all of the following hold:
   to use it. Set `description` only on `COMPONENT`/`COMPONENT_SET`, per `figma-use` Rule 3a.
 - **State interactions are wired on the main component** so the prototype is actually
   clickable/testable, not just a static mockup — see `references/prototyping.md`.
-- **It's recorded in `.ux-prototype/NEW-COMPONENTS.md`** the moment it's created — name,
-  atomic level, node ID, states covered, and which screens use it. This keeps §1's reuse
-  check fast for the next screen and the next agent.
+- **It's recorded in `.ux-prototype/NEW-COMPONENTS.md`** (history) and
+  **`COMPONENT-INDEX.md`** (current state) the moment it's created — name, atomic level,
+  node ID, states covered, and which screens use it. This keeps §1's reuse check fast for
+  the next screen and the next agent.
+
+**Fork when context differs.** A cart line is not a catalogue row, and a reserve row is not
+a search card, even when they start out looking alike. Once the user has approved a
+component, don't add variants or properties to it to serve a new context — every instance
+re-renders, and the user has to re-review screens they already signed off (on one project,
+stretching a table row for the cart changed 85 approved catalogue rows). Fork it into a new
+component (record the fork in both files). Edit an approved component only when the change
+is meant for all its usages — and then list the screens that will change and ask first.
+
+**Rows and lists:**
+
+- Right-side row actions are icon buttons in the design system's **Secondary** variant (not
+  ghost in one table and secondary in the next); an overflow `⋯` menu is always last.
+- Header-row labels align with the cell columns below them — same widths/sizing per column.
+- A header "select all" checkbox changes the checkbox, not the header row's variant.
+
+**Standard sizes and orders.** Overlays of one kind share one width (one sheet width, one
+dialog width); exceptions are listed in `DESIGN-SYSTEM.md` → "Standard sizes" with a
+reason. Button order in dialogs and sheets follows the convention in `PROJECT.md` (team
+default: primary first, cancel last) everywhere.
 
 ---
 
 ## 4. Variables, tokens, styles
 
 No hardcoded hex, pixel spacing, radius, or font value in anything this skill creates.
+(Screen and overlay frame dimensions are the exception — don't create `spacing/1728`-style
+variables for frame sizes; they are presentation settings, not tokens.)
 Every fill and stroke binds to a color variable, every padding/gap/radius binds to a number
 variable, every run of text uses a text style, every shadow uses an effect style. This
 matters because the whole reason to prototype inside the user's file is that a restyle of
@@ -317,11 +344,37 @@ realistic content (§6) is in play.
   overflowing.
 - Set constraints on the screen frame itself (its own children's constraints, not the
   screen's) so panels anchor correctly when the frame resizes.
-- **Screen frames are 1512px wide** desktop frames (team default) with height set to hug
-  content — never a fixed height that clips a long screen.
-- **Resize-test every screen**: resize the screen frame to ~1280 and ~1728, screenshot at
-  each width, and confirm nothing clips, overlaps, or reflows badly. Restore the frame to
-  1512 width when done — the resize is a test, not the final state.
+- **Screen frames follow the presentation setup in `PROJECT.md`** (e.g. 1728 wide, min
+  height 1117 = the presentation device): width fixed, height hugs content with the min
+  height set — never a fixed height that clips a long screen. If the sidebar/header are
+  fixed and only content scrolls, set that up on the template from the first screen
+  (`overflowDirection`, fixed children — see `prototyping.md`), because it can't be
+  overridden per instance and retrofitting it across finished screens is expensive.
+- **Resize-test every screen**: resize the screen frame ~250px narrower and ~250px wider
+  than its set width, screenshot at each width, and confirm nothing clips, overlaps, or
+  reflows badly. Restore the frame's width when done — the resize is a test, not the final
+  state.
+- **Read back sizing after building.** Most layout bugs users report are a child left
+  `FIXED` where `HUG` or `FILL` was intended — a toolbar, a search field, price inputs, the
+  value column of a data row, tabs. `resize()` on an instance and inherited `maxWidth` both
+  cause it silently (see `figma-gotchas.md`). Run this after each screen/component:
+
+```js
+// FIXED-width nodes inside auto-layout parents — each hit should be a deliberate choice
+const root = await figma.getNodeByIdAsync(ROOT_ID);
+const hits = root.findAll(n =>
+  !n.id.startsWith('I') &&                       // skip layers inside instances (design-system internals)
+  n.parent && 'layoutMode' in n.parent && n.parent.layoutMode !== 'NONE' &&
+  ['TEXT', 'FRAME', 'INSTANCE'].includes(n.type) &&
+  n.layoutSizingHorizontal === 'FIXED' && n.width > 48   // ignore icons/checkboxes
+).map(n => ({ id: n.id, name: n.name, type: n.type, width: Math.round(n.width),
+              parent: n.parent.name, parentSizing: n.parent.layoutSizingHorizontal,
+              maxWidth: n.maxWidth }));
+// Also catch FILL nodes pinned by an inherited maxWidth
+const pinned = root.findAll(n => !n.id.startsWith('I') && n.layoutSizingHorizontal === 'FILL' && n.maxWidth != null)
+  .map(n => ({ id: n.id, name: n.name, maxWidth: n.maxWidth }));
+return { checked: root.name, fixed: hits, fillWithMaxWidth: pinned };
+```
 
 **Verification snippet** — frames with children but no auto layout:
 
@@ -354,6 +407,30 @@ assembling screens. Concretely:
 - Images are neutral placeholders (design-system placeholder fill, or a generic image
   component if the library has one) — never a specific photo, illustration, or logo chosen
   for its look.
+- **No dead ends.** Every button, link, menu item and row action has a destination that
+  exists in the prototype, or is explicitly marked "not designed" (a visible note, and a
+  line in `NEEDED-INFO.md`). If there is nowhere for it to land and it isn't in the brief,
+  don't add the button — "view all", "browse catalogue", "add all to cart" links with
+  nothing behind them are the most common thing reviewers delete.
+- **No invented features.** Don't add features, actions, labels, statuses, badges or data
+  that aren't in the brief, the research notes or the live product — no notification bell,
+  undo in toasts, extra warehouse locations or "updated" tags because they seemed
+  plausible. If an idea seems useful, propose it at the checkpoint; don't build it.
+- **No explainer text.** No helper subtitles under titles, instructional sentences
+  ("Select several items to…", "Set the price range…"), summary counters
+  ("4 subcategories · 6 brands") or alert copy that only describes the UI. Keep text the
+  user needs to act or decide; if an explanation is truly needed, put it in a tooltip on an
+  info icon.
+- **Navigation chrome:** no breadcrumbs on first-level pages reachable from the sidebar;
+  inner pages get a back button (and breadcrumbs only if the product already uses them).
+- **Terminology** comes from the live product and the brief, in the UI language recorded
+  in `PROJECT.md` — never coin new terms. Same thing, same word, on every screen.
+- **Selects, dropdowns and menus open with real content** — the actual options for that
+  field — never "Option 1 / Option 2".
+- **Realistic quantities, one example path.** Lists and catalogues show a realistic count
+  (≈20 rows for a product list — enough to scroll or paginate), with real category names.
+  Follow one concrete example through the whole flow (one category, one product, one
+  order) rather than mixing unrelated examples across steps.
 - **Do** use realistic content everywhere: real field labels, plausible sample data (names,
   dates, amounts that look like they came from the product, not "Lorem ipsum" or "Text
   here"), real error messages ("Card number is invalid" not "Error"), real empty-state copy
@@ -410,8 +487,12 @@ A screen is done only when all of these are true:
       empty (or every hit is explained)
 - [ ] Every frame with children uses auto layout except deliberate absolute overlays —
       verification snippet in §5 returns empty (or every hit is explained)
-- [ ] Screen frame is 1512px wide, height hugs content, and it doesn't clip/overlap at
-      ~1280 and ~1728 widths
+- [ ] Screen frame matches the presentation setup in `PROJECT.md` (width, min height,
+      fixed header/sidebar, scroll), height hugs content, and it doesn't clip/overlap when
+      resized narrower and wider
+- [ ] Sizing read-back (§5) returns no unintended `FIXED` widths or pinned `maxWidth`
+- [ ] No dead ends, invented features or explainer text (§6); unknowns are marked with a
+      visible note and listed in `NEEDED-INFO.md`
 - [ ] Content is realistic (real labels, plausible data, real error/empty copy) and visuals
       are wireframe-neutral (design-system defaults only, no new brand/imagery/decoration)
 - [ ] Every frame Claude created is meaningfully named; every instance still carries its
@@ -422,3 +503,31 @@ A screen is done only when all of these are true:
 - [ ] `use_figma` calls that built it each returned their created/mutated node IDs, and
       those IDs are recorded for the orchestrator
 - [ ] A screenshot was taken and reviewed after building
+
+---
+
+## 9. Consistency sweep (before every checkpoint)
+
+Run across the **whole prototype page**, not just the flow you built — inconsistencies sit
+between flows, and users spot them before anything else. Report as
+`rule | screens/nodes | evidence`; fix in a separate, scoped pass.
+
+- [ ] **One component per job.** The same UI job uses the same component everywhere — e.g.
+      one Tabs component, not the design-system Tabs on one screen and a hand-made tab row
+      on another; one row-actions pattern.
+- [ ] **Colour logic is documented and followed.** Every badge/tag colour maps to a meaning
+      written in `DESIGN-SYSTEM.md` (e.g. stock: in stock / low / out); no colour used for
+      two meanings or chosen because it looked nice.
+- [ ] **Standard sizes.** Overlays of one kind share one width; exceptions are listed in
+      `DESIGN-SYSTEM.md` → "Standard sizes".
+- [ ] **Button order** in every dialog and sheet follows `PROJECT.md`.
+- [ ] **Tables and lists:** header labels align with their columns; row actions use the
+      same variant everywhere; overflow `⋯` is last.
+- [ ] **Terminology:** same thing, same word; matches the live product.
+- [ ] **Global navigation:** every sidebar/header item links correctly from every screen
+      (audit script in `prototyping.md` §5).
+- [ ] **Global rules** in `PROJECT.md` (user preferences like "no undo in toasts") hold on
+      every screen, including flows built before the rule was set.
+- [ ] **Regression watchlist:** every item in `LESSONS.md` → "Keep fixed" still checks out.
+      A bug fixed three times and reintroduced by later edits each time is the pattern this
+      prevents.

@@ -20,18 +20,20 @@ Pass the model explicitly when spawning (`model: "haiku"` / `"sonnet"`). Record 
 
 | Role | Model | Reads | Does | Returns |
 |---|---|---|---|---|
-| **Resource summariser** | haiku | one or a few documents/URLs | extracts goals, users, features, constraints, open questions | ≤ 40-line summary per resource |
+| **Resource summariser** | haiku | one or a few documents/URLs (text-heavy; dense diagrams and annotated screenshots you read yourself — haiku misreads them) | extracts goals, users, features, constraints, open questions | ≤ 40-line summary per resource |
 | **Inventory agent** | haiku (sonnet if the file is large/messy and haiku's catalogue comes back thin) | Figma file via `get_metadata`, `search_design_system`, `get_variable_defs`, read-only `use_figma` scripts | catalogues components, variants, properties, keys/IDs, variables, styles, conventions | writes `DESIGN-SYSTEM.md`; returns gaps + conventions digest |
 | **Researcher** | haiku; sonnet for novel or regulated domains | `references/ux-research.md`, `PROJECT.md` | Mobbin + web research for one feature | writes `research/<feature>.md`; returns digest + open questions |
 | **Component builder** | sonnet | `build-rules.md`, `prototyping.md`, relevant rows of `DESIGN-SYSTEM.md` / `NEW-COMPONENTS.md`, research note | creates one missing component (set) with states, props, variables, main-component interactions | node IDs, variant list, props, interactions, tokens added |
 | **Screen builder** | sonnet | same + the flow's block from `FLOWS.md` | builds a template or a batch of 1–4 closely related screens from instances | node IDs per screen, components used, anything missing |
 | **Prototype wirer** | sonnet | `prototyping.md`, flow block with node IDs | wires navigation/overlays/back, sets flow starting point | wiring table rows, unresolved dead ends |
-| **QA verifier** | haiku | `build-rules.md` §DoD, `prototyping.md` §verification, node IDs to check | runs verification scripts, resize screenshots, reports defects; does **not** fix | pass/fail list with node IDs |
-| **Fixer** | sonnet | QA report | fixes listed defects only | what changed |
+| **QA verifier** | haiku | `build-rules.md` §8–9, `prototyping.md` §5, node IDs to check | runs verification scripts, resize screenshots, reports defects; does **not** fix | pass/fail list with node IDs |
+| **Fixer** | sonnet | QA report | fixes listed defects only, on the listed nodes only | what changed |
 
-Keep for yourself: the plan, every user conversation, choosing between research-backed alternatives, component architecture when a new organism has non-obvious slots/variants, and all writes to `STATE.md`, `TASKS.md`, `FLOWS.md`, `PROJECT.md`, `NEW-COMPONENTS.md`, `LOG.md`.
+Keep for yourself: the plan, every user conversation, choosing between research-backed alternatives, component architecture when a new organism has non-obvious slots/variants, and all writes to `STATE.md`, `TASKS.md`, `FLOWS.md`, `PROJECT.md`, `NEW-COMPONENTS.md`, `COMPONENT-INDEX.md`, `NEEDED-INFO.md`, `LESSONS.md`, `LOG.md`.
 
-Every subagent that calls `use_figma` must first load Figma's `figma-use` skill; component builders also load `figma-generate-library`. Say so in the brief — a cold subagent doesn't know.
+Every subagent that calls `use_figma` must first load Figma's `figma-use` skill and read `references/figma-gotchas.md`; component builders also load `figma-generate-library`. Say so in the brief — a cold subagent doesn't know.
+
+**Name the Figma tools in every brief.** When more than one Figma MCP server is connected, subagents pick one at random and the unauthenticated one fails the whole run. Every brief that touches Figma carries the line `Figma tools: use only <prefix>* (e.g. mcp__claude_ai_Figma__*)`, with the prefix recorded in `STATE.md` at Gate 1.
 
 ## 3. What may run in parallel
 
@@ -52,9 +54,10 @@ Typical flow schedule: researchers (parallel) → you refine the screen list →
 The subagent starts with nothing: no conversation, no project knowledge, no idea this skill exists. A good brief is self-contained and small:
 
 - **Goal and why** in two sentences, including the product context that affects judgement.
-- **Exact targets**: Figma file URL + key, page/section name, node IDs of components to use, canvas origin, frame width 1512.
+- **Exact targets**: Figma file URL + key, the Figma tool prefix to use, page/section name, node IDs of components to use, canvas origin, the presentation setup from `PROJECT.md` (frame width, min height, fixed header/sidebar).
+- **Project rules**: the UI language, the "Global rules" from `PROJECT.md`, and the relevant `LESSONS.md` items — pasted, not referenced, if they're short.
 - **What to read**: absolute paths to the skill's reference files and the specific `.ux-prototype/` files (or paste just the relevant rows — cheaper than making it read a long inventory).
-- **Boundaries**: which pages it may touch, that it must not detach/restyle/delete existing components, that it must not edit the orchestrator-owned state files.
+- **Boundaries**: which pages, sections and node IDs it may touch, that it must not detach/restyle/delete existing components, that it must not change components outside its brief (approved components are forked, not extended), and that it must not edit the orchestrator-owned state files. A brief like "audit everything and fix" once added close actions to 33 steppers that all had to be reverted — scope every writer.
 - **Definition of done**: the checks it must run on its own work before returning.
 - **Return format**: compact and structured so you can paste it into the records; cap the length. Ask for failures and doubts explicitly — a silent workaround is worse than an honest "couldn't".
 
@@ -97,6 +100,7 @@ duplicates, unpublished libraries).
 **Component builder**
 ```
 Create ONE new component in Figma file <url> (key <key>) because nothing existing fits.
+Figma tools: use only <prefix>*.
 Component: <name, atomic level> — purpose: <what it does in the flow>.
 Build it from these existing components (instances): <name → node ID/key list>.
 States/variants required: <list>. Properties: <text/boolean/instance-swap list>.
@@ -107,6 +111,8 @@ Load the figma-use and figma-generate-library skills before use_figma.
 Use only existing variables/styles: <relevant tokens>. If a value is truly missing, add a
 variable following the collection's naming and modes and report it.
 Wire state interactions on the main component variants. Fill in the component description.
+Do not modify any other component; if an approved one almost fits, fork it — don't extend it.
+Run the sizing read-back (build-rules §5): no unintended FIXED widths.
 Instances of existing components inside your component keep their original names.
 Self-check: run the unbound-values and no-auto-layout snippets on the component; screenshot it.
 Do not edit any .ux-prototype files.
@@ -117,16 +123,26 @@ doubts. ≤ 30 lines.
 **Screen builder**
 ```
 Build these screens for flow "<flow>" in Figma file <url> (key <key>), page "<page>",
-section "<section>", first frame at x=<x>, y=<y>, 1512 wide, 120px gaps, left-to-right in order:
+section "<section>", first frame at x=<x>, y=<y>, <width> wide, min height <height>,
+120px gaps, left-to-right in order:
 <# | screen | purpose | states | template | organisms/molecules to use (name → node ID)>.
+Figma tools: use only <prefix>*.
 Context: <2 lines about product/users>. Research digest: <5 bullets or note path>.
-Read first: <skill path>/references/build-rules.md. Load the figma-use skill before use_figma.
+UI language: <language>. Global rules: <from PROJECT.md>.
+Read first: <skill path>/references/build-rules.md and figma-gotchas.md. Load the figma-use
+skill before use_figma.
+States of one screen (tabs, filters, empty/error) are variants of a component on that screen,
+not extra screens.
+No dead ends, no invented features, no explainer text (build-rules §6): only the actions,
+labels and data listed here or in the research note. Where something is unknown
+(<NEEDED-INFO items>), build the known part and place a visible note frame saying what's
+missing.
 Everything is instances of existing components with realistic content; if something needed
 does not exist, STOP building that part and report it rather than drawing raw layers.
 Do not rename instances or anything inside them — they keep the component's name; name only
 the frames you create (e.g. "Login Form", "Header").
 Work in small scripts that return created node IDs. Screenshot each finished screen and fix
-what looks broken. Run the definition-of-done checks.
+what looks broken. Run the definition-of-done checks, including the sizing read-back.
 Do not add "overlay slots" to screens and do not build duplicate screens that only differ by
 an overlay — overlays are separate shared frames handled by the wiring agent.
 Do not wire screen-to-screen navigation (a later agent does) unless told otherwise. Do not
@@ -137,8 +153,10 @@ Return: table of screen → node ID → components used; missing pieces; doubts.
 **Prototype wirer**
 ```
 Wire the prototype for flow "<flow>" in Figma file <url> (key <key>), page "<page>".
+Figma tools: use only <prefix>*.
 Screens and node IDs: <table>. Intended wiring: <From › element | trigger | action | To>.
-Read first: <skill path>/references/prototyping.md. Load the figma-use skill before use_figma.
+Read first: <skill path>/references/prototyping.md ("Known limits" first) and
+figma-gotchas.md. Load the figma-use skill before use_figma.
 Component state behaviour belongs on main components — if an instance lacks inherited
 behaviour, fix the main component (<NEW-COMPONENTS rows>) rather than wiring the instance.
 Overlays are single shared frames in the "Overlays" sub-section (create any that are missing:
@@ -146,18 +164,24 @@ one instance of Dialog/Sheet/Dropdown Menu/… with real content, no screen dupl
 component-owned overlays (header menus, select options, tooltips, date pickers) on the MAIN
 component so all instances inherit them; wire screen-specific dialogs/toasts on the screen's
 instance. Report overlay frames whose position/background the user must set by hand.
-Set one flow starting point named "<flow>". Run the verification snippet and resolve or list
-every dead end and unreachable screen.
+Size each overlay frame to its largest variant; open every overlay with real content.
+Set one flow starting point named "<flow>". Run the verification script (incl. inbound counts)
+and the global navigation audit; resolve or list every dead end, orphan and unreachable screen.
+Touch only the nodes listed above and the overlay frames of this flow.
 Return: completed wiring rows, verification JSON summary, unresolved items. ≤ 30 lines.
 ```
 
 **QA verifier**
 ```
 Verify, do not fix. Figma file <url> (key <key>), nodes: <IDs>.
-Read <skill path>/references/build-rules.md (§8 definition of done + verification snippets) and
-references/prototyping.md (§ verification). Load the figma-use skill before use_figma.
-Run the snippets (read-only), take screenshots at current width, and resize-check at 1280 and
-1728 (restore 1512 afterwards). Also list any INSTANCE whose name differs from its main
+Figma tools: use only <prefix>*.
+Read <skill path>/references/build-rules.md (§8 definition of done, §9 consistency sweep,
+verification snippets) and references/prototyping.md (Known limits, §5). Load the figma-use
+skill before use_figma.
+Run the snippets (read-only): unbound values, auto layout, sizing read-back, prototype
+verification with inbound counts, global navigation audit. Take screenshots at the current
+width, and resize-check ~250px narrower and wider (restore <width> afterwards). Check the
+regression watchlist: <LESSONS.md "Keep fixed" items>. Also list any INSTANCE whose name differs from its main
 component's name (`inst.name !== (await inst.getMainComponentAsync()).name`, accounting for
 variant sets where the parent component set name is the expected one).
 Return a defect list: node ID | rule broken | evidence. Say "PASS" per screen when clean. ≤ 40 lines.
@@ -166,7 +190,8 @@ Return a defect list: node ID | rule broken | evidence. Say "PASS" per screen wh
 ## 6. Handling results and failures
 
 - Record immediately: paste returned node IDs into `FLOWS.md` / `NEW-COMPONENTS.md`, advance `TASKS.md`. A crash after this point loses nothing.
-- Trust but spot-check: take one screenshot of a builder's output yourself before fanning out more work that depends on it.
+- Don't take "nothing clips" on trust: screenshot every builder's and fixer's output yourself (`get_screenshot` on the screens they returned) before recording it as done or fanning out work that depends on it. Builders have twice reported clean output that visibly clipped.
+- A QA agent reports; it never fixes. A fixer fixes only the listed defects on the listed nodes. If a sweep suggests a change across many screens, bring it to the user first.
 - If a subagent reports a missing component, that becomes a new task ahead of the screen in `TASKS.md`; don't let the screen builder improvise.
 - If a cheap model fails a clear brief once, retry once on the next model up with the failure attached; note it in the task. If it fails again, the brief or the plan is wrong — rethink it yourself.
 - If the Figma or Mobbin MCP becomes unavailable mid-session, mark affected tasks `blocked` with the reason, tell the user what they need to do, and continue with work that doesn't depend on it.

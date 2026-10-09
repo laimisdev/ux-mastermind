@@ -34,6 +34,16 @@
 |------|-----------------|-----------|-----------------|-------------------|
 | 2026-09-21 | (example — delete) | (collection name) | light: X, dark: Y | (gap it fills) |
 
+## Standard sizes & colour logic
+
+<!-- One standard per overlay kind; every exception with a reason. Every badge/tag colour mapped to one meaning. Checked in the consistency sweep. -->
+
+| Thing | Standard | Exceptions (where, why) |
+|-------|----------|-------------------------|
+| Sheet width | (e.g., 480) | |
+| Dialog width | (e.g., 512) | |
+| Badge colours | (e.g., in stock = default, low = secondary, out = destructive) | |
+
 ## Gaps
 
 <!-- Things the system lacks that flows will need (new tokens, missing components, interactions, etc.) -->

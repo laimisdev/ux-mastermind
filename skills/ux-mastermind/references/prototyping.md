@@ -4,6 +4,7 @@ Wiring Figma's prototype layer (Reactions, Navigation, overlays, scroll, flows) 
 
 ## Contents
 
+0. [Known limits — read before wiring](#known-limits--read-before-wiring)
 1. [Principle: component behaviour lives on the component](#1-principle-component-behaviour-lives-on-the-component)
 2. [Principle: screen navigation lives on the instance inside the screen](#2-principle-screen-navigation-lives-on-the-instance-inside-the-screen)
 3. [Working snippets](#3-working-snippets)
@@ -20,10 +21,59 @@ Wiring Figma's prototype layer (Reactions, Navigation, overlays, scroll, flows) 
    - [flowStartingPoints — one per user flow](#flowstartingpoints--one-per-user-flow)
    - [Scroll overflow and fixed (sticky) children](#scroll-overflow-and-fixed-sticky-children)
 4. [Wiring checklist per flow](#4-wiring-checklist-per-flow)
-5. [Verification script](#5-verification-script)
+5. [Verification scripts](#5-verification-scripts)
 6. [Common failure modes and fixes](#6-common-failure-modes-and-fixes)
 
 ---
+
+## Known limits — read before wiring
+
+Each of these cost a failed run, a rework or a bug report on a real project.
+
+**Overlays**
+
+- **Position and background are read-only to scripts**, and the position is stored **per
+  reaction**, not only on the frame. An instance-level override of an `OVERLAY` reaction
+  freezes that instance's position: when the user later repositions the overlay on the main
+  component, instances that carry their own copy don't follow. After the user repositions,
+  re-copy the master's action to the instances, or `resetOverrides()` them.
+- **Overlays don't resize in the player.** An overlay frame shows at the size it has in the
+  file; switching its content to a taller variant inside the player clips. Size the overlay
+  frame to its largest variant.
+- **Bare overlay instances must be instances of the interactive component itself** (the one
+  whose variants carry the `CHANGE_TO` reactions), not of a wrapper around it — otherwise
+  the state interactions inside the overlay don't fire.
+- **The design system's `Select` already has a hover → open interaction.** When you add your
+  own options overlay to it, strip the built-in one first, or the player opens two overlays.
+- **Overlays must open with real content** — the actual options/actions — never empty or
+  placeholder. An overlay that opens empty usually means the scroll setup below is wrong.
+- **Every overlay needs an inbound link.** Count inbound reactions per overlay frame (§5); a
+  dialog nothing opens is a question the user will ask ("this modal doesn't show up
+  anywhere").
+
+**Navigation and triggers**
+
+- **A frame can't navigate to itself** — and one such reaction makes the whole
+  `setReactionsAsync` call fail. When wiring navigation per screen, skip the item that
+  points at the current screen.
+- **`SCROLL_TO` destinations must be real nodes on the page** — resolve the ID from the
+  screen itself, not from a component definition.
+- **`MOUSE_LEAVE` isn't usable as a trigger** in `use_figma` — use `ON_HOVER`, which reverts
+  on its own when the pointer leaves.
+- **Cloning a screen freezes reactions inside it as overrides** (sidebar links stop
+  following the main component). Call `resetOverrides()` on the cloned navigation instance.
+- **Global navigation must work from every screen.** After any change to the sidebar or
+  header — and before each checkpoint — run the global navigation audit in §5. Users find
+  the one screen whose sidebar doesn't link.
+
+**Scroll**
+
+- **The top-level screen's `overflowDirection` must be set on the template** (main
+  component) — it can't be overridden on an instance. Set it on the template before
+  building screens from it.
+- **Don't put a scroll container inside a design-system overlay master** (e.g. inside the
+  `Sheet` component): sheets then opened empty in the player. Put the scrolling frame in the
+  overlay frame's own content instead.
 
 ## 1. Principle: component behaviour lives on the component
 
@@ -136,7 +186,7 @@ await hoverVariant.setReactionsAsync([
 return { defaultVariantId: defaultVariant.id, hoverVariantId: hoverVariant.id }
 ```
 
-`ON_HOVER` alone models "while hovering, look like X"; Figma's own hover behaviour treats it as a two-way toggle in the prototype player. `MOUSE_ENTER` / `MOUSE_LEAVE` triggers exist too (each carries `delay: number` and `deprecatedVersion: boolean`, e.g. `{ type: 'MOUSE_ENTER', delay: 0, deprecatedVersion: false }`) for enter/leave asymmetry or a delay — prefer plain `ON_HOVER` unless you need that.
+`ON_HOVER` alone models "while hovering, look like X"; Figma's own hover behaviour treats it as a two-way toggle in the prototype player, so no leave trigger is needed. `MOUSE_ENTER` exists for a delayed hover (`{ type: 'MOUSE_ENTER', delay: 0, deprecatedVersion: false }`), but `MOUSE_LEAVE` didn't work as a trigger in practice (see Known limits) — use plain `ON_HOVER`.
 
 ### ON_PRESS
 
@@ -317,6 +367,8 @@ return { nodeId: screen.id, numberOfFixedChildren: screen.numberOfFixedChildren 
 
 If both a sticky header and a sticky bottom tab bar are needed, both must be among the first `numberOfFixedChildren` children in the layer order — reorder both to the top before setting the count.
 
+**Fixed sidebar/header, only the content scrolls** (the usual presentation setup in `PROJECT.md`): do it once, on the template's main component, before any screen is built from it — set `overflowDirection = 'VERTICAL'`, order the sidebar and header first, set `numberOfFixedChildren`, and give the template the presentation width and min height. Instances can't override `overflowDirection`, so screens built before this is in place all need rework.
+
 ## 4. Wiring checklist per flow
 
 Run this checklist for every user flow before calling it done:
@@ -324,29 +376,37 @@ Run this checklist for every user flow before calling it done:
 - [ ] **Every interactive element has a reaction, or a documented reason it's a dead end.** Buttons, links, tabs, list rows, icon-buttons, chips — each either has a `reactions` entry or is intentionally inert (e.g. a disabled state, a placeholder "coming soon" affordance) and that reason is noted in the build report, not just silently skipped.
 - [ ] **Every screen is reachable from the flow's `flowStartingPoints` entry.** No orphaned screens that only exist as unreferenced frames on the page.
 - [ ] **Every screen has a way back or out** — a `BACK` action, an explicit `NAVIGATE` to a known previous/parent screen, or (for the flow's true entry screen) it legitimately has no "back."
-- [ ] **Error, empty, loading, and success states are reachable**, not just visually designed. If a screen has an `Error` variant or a companion `[Screen] — Error` frame, some trigger in the flow must actually navigate/change-to it (even if only for demo purposes, e.g. a "Simulate error" affordance) — an unreachable error state isn't prototyped, it's just drawn.
+- [ ] **Error, empty, loading, and success states are reachable**, not just visually designed. States of the same screen are variants of a component on that screen, switched with `CHANGE_TO` — not companion `[Screen] — Error` frames; some trigger in the flow must actually change to each of them (even if only for demo purposes, e.g. a "Simulate error" affordance) — an unreachable error state isn't prototyped, it's just drawn.
 - [ ] **One frame per overlay.** No screen contains an "overlay slot", and no two top-level frames are the same screen differing only by an overlay on top. Component-owned overlays are wired on the main component, not per screen.
 - [ ] **Overlays close.** Every `OVERLAY` destination has at least one `CLOSE` action reachable from inside it (close button, and/or rely on `overlayBackgroundInteraction` if it's already set to `CLOSE_ON_CLICK_OUTSIDE` in the file — remember this property is read-only from script, so don't assume it without checking).
 - [ ] **One flow starting point per flow**, pointing at that flow's actual first screen, named after the flow.
+- [ ] **Every screen and overlay has inbound links** — inbound count per destination (§5) is ≥ 1 for every top-level frame except flow starting points.
+- [ ] **Global navigation works from every screen** — the audit in §5 returns no problems.
+- [ ] **No double overlays** — components with a built-in open interaction (e.g. `Select`) had it removed before a custom overlay was wired.
 
-## 5. Verification script
+## 5. Verification scripts
 
 Read-only audit script. Scope traversal to the smallest known ancestor per the `figma-use` gotcha — pass a specific page or top-level frame ID rather than scanning `figma.root`.
 
 ```js
 // Run with figma.currentPage already set to the target page (once, per figma-use rules).
 const page = figma.currentPage
-const topFrames = page.children.filter(n => n.type === 'FRAME')
+// Screens and overlays sit inside Sections, so "top-level" = a FRAME whose parent is the page or a SECTION
+const topFrames = page.findAll(n => n.type === 'FRAME' && (n.parent.type === 'PAGE' || n.parent.type === 'SECTION'))
 
 // (a) top-level frames with no inbound navigation
 const allNodes = page.findAllWithCriteria({
   types: ['FRAME', 'INSTANCE', 'COMPONENT', 'GROUP', 'TEXT', 'RECTANGLE'],
 })
 const referencedIds = new Set()
+const inbound = {} // destinationId -> number of reactions pointing at it
 const collectDestinations = (reactions) => {
   for (const r of reactions || []) {
     for (const a of r.actions || []) {
-      if (a.type === 'NODE' && a.destinationId) referencedIds.add(a.destinationId)
+      if (a.type === 'NODE' && a.destinationId) {
+        referencedIds.add(a.destinationId)
+        inbound[a.destinationId] = (inbound[a.destinationId] || 0) + 1
+      }
       if (a.type === 'CONDITIONAL') {
         for (const block of a.conditionalBlocks || []) collectDestinations([{ actions: block.actions }])
       }
@@ -390,21 +450,60 @@ for (const n of allNodes) {
   if ('reactions' in n) checkBroken(n.id, n.name, n.reactions)
 }
 
+// (d) inbound count per destination — low counts point at orphan overlays/screens and at
+//     screens only reachable from one place; compare against the intended wiring table
+const inboundCounts = topFrames
+  .map(f => ({ id: f.id, name: f.name, section: f.parent.name, inbound: inbound[f.id] || 0 }))
+  .sort((a, b) => a.inbound - b.inbound)
+
 return {
   framesWithNoInbound,
+  inboundCounts,
   uninstrumented,
   brokenRefs,
 }
 ```
 
+`brokenRefs` empty is not enough — a dialog nothing opens has no broken refs. Read `inboundCounts` too: every overlay and every screen except flow starting points should be ≥ 1.
+
 Notes: `allIds` only covers the criteria-filtered `allNodes` types above — extend the `types` list if the file uses other interactive node shapes (e.g. vectors as tap targets), or note the scope limit in the report. `(a)` treats `flowStartingPoints` entries as valid inbound references, since a flow's first screen is legitimately never targeted by a `NODE` action. `(b)` is a name-based heuristic (per `gotchas.md`'s guidance that name-only lookups are the right tool absent a type/criteria signal) — treat it as a checklist prompt, not ground truth.
+
+### Global navigation audit
+
+Run after any change to the sidebar/header and before each checkpoint. Fill `EXPECTED` with every navigation item's visible label and the screen it should open.
+
+```js
+const SCREEN_IDS = [/* every top-level screen that shows the sidebar */]
+const EXPECTED = { /* 'Orders': ORDERS_SCREEN_ID, 'Returns': RETURNS_SCREEN_ID, … */ }
+const NAV_PATTERN = /sidebar|nav/i // name of the navigation instance on each screen
+
+const problems = []
+for (const sid of SCREEN_IDS) {
+  const screen = await figma.getNodeByIdAsync(sid)
+  if (!screen) { problems.push({ screen: sid, issue: 'screen not found' }); continue }
+  const nav = screen.findOne(n => n.type === 'INSTANCE' && NAV_PATTERN.test(n.name))
+  if (!nav) { problems.push({ screen: screen.name, issue: 'no navigation instance' }); continue }
+  for (const [label, destId] of Object.entries(EXPECTED)) {
+    if (destId === sid) continue // a frame can't navigate to itself
+    const text = nav.findOne(n => n.type === 'TEXT' && n.characters.trim() === label)
+    if (!text) { problems.push({ screen: screen.name, item: label, issue: 'item not found' }); continue }
+    let node = text, linked = false
+    while (node && node !== screen) { // the reaction may sit on the text, the item, or a wrapper
+      if ((node.reactions || []).some(r => (r.actions || []).some(a => a.destinationId === destId))) { linked = true; break }
+      node = node.parent
+    }
+    if (!linked) problems.push({ screen: screen.name, item: label, issue: 'not linked to expected screen' })
+  }
+}
+return { screensChecked: SCREEN_IDS.length, problems }
+```
 
 ## 6. Common failure modes and fixes
 
 - **Reactions silently don't stick.** `node.reactions = [...]` throws or is ignored under `"documentAccess": "dynamic-page"` (the mode `use_figma` runs in) — always use `await node.setReactionsAsync([...])`.
 - **`setReactionsAsync` wipes out reactions the node already had.** It replaces the whole list. Read `node.reactions`, deep-clone it (`JSON.parse(JSON.stringify(...))`), append/edit, then write the full array back — don't pass just the new reaction.
 - **`CHANGE_TO` fails or does nothing.** The destination must be a `COMPONENT` that is a variant inside the *same* `COMPONENT_SET` as the source node. `CHANGE_TO` pointed at an unrelated frame, or at a component in a different set, is not a supported combination per the `Navigation` union's intended use — verify both nodes share a `COMPONENT_SET` parent before wiring.
-- **`NAVIGATE`/`SWAP`/`OVERLAY`/`SCROLL_TO` destination not found at runtime.** `destinationId` must resolve to a node that exists on the *same page* the trigger node lives on — Figma prototyping does not navigate across pages. Re-verify IDs with the [verification script](#5-verification-script)'s `(c)` check after any restructuring, since node IDs can change on detach/reparent operations (see the `figma-use` `detachInstance()` gotcha).
+- **`NAVIGATE`/`SWAP`/`OVERLAY`/`SCROLL_TO` destination not found at runtime.** `destinationId` must resolve to a node that exists on the *same page* the trigger node lives on — Figma prototyping does not navigate across pages. Re-verify IDs with the [verification script](#5-verification-scripts)'s `(c)` check after any restructuring, since node IDs can change on detach/reparent operations (see the `figma-use` `detachInstance()` gotcha).
 - **Component-level reaction gets silently overridden per-instance.** If someone later calls `setReactionsAsync` directly on an *instance* of a component whose variants already carry `CHANGE_TO` reactions, the instance-level call can add a second, redundant, or conflicting reaction rather than relying on inheritance. Don't call `setReactionsAsync` on instances for behaviour that's already defined on the master component's variants — only call it on instances for screen-specific navigation (principle 2).
 - **Overlay position/background looks wrong and the script "did nothing."** `overlayPositionType`, `overlayBackground`, and `overlayBackgroundInteraction` are `readonly` in this API — there is no setter. These must be configured by hand in Figma's Prototype panel; a script cannot change them. Only `overlayRelativePosition` on the triggering action (for `MANUAL` position type) is writable.
 - **`numberOfFixedChildren` pins the wrong layer.** It fixes children by index position (`children[0..N-1]`), not by name or flag. If a sticky header isn't sticking, check `frame.children` order first — `insertChild(0, header)` before setting the count.

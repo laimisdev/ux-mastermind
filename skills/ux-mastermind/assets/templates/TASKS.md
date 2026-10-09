@@ -9,7 +9,6 @@
 
 ## Done archive
 
-<!-- Completed tasks. Use same table header. Move tasks here when verification passed. -->
+<!-- When a flow is approved, collapse all its tasks into ONE line here; node IDs live in FLOWS.md. -->
 
-| ID | Task | Flow | Type | Depends on | Agent model | Status | Output (node IDs / file paths) | Notes |
-|----|----|------|------|-----------|-------------|--------|------------------------------|-------|
+- (example — delete) Flow "Checkout" — T-010…T-024 done, approved 2026-09-30
